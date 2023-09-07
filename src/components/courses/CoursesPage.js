@@ -1,17 +1,33 @@
 import React, { Component } from "react";
 import { connect } from "react-redux";
 import * as courseActions from "../../redux/actions/courseActions";
+import * as authorActions from "../../redux/actions/authorActions";
 import PropTypes from "prop-types";
 import { bindActionCreators } from "redux";
+import CourseList from "./CourseList";
+import { Redirect } from "react-router-dom";
+import Spinner from "../common/Spinner";
 
 class CoursesPage extends Component {
   state = {
-    course: {
-      title: "",
-    },
+    redirectToAddCoursePage: false,
   };
 
-  handleChange = (event) => {
+  componentDidMount() {
+    const { courses, authors, actions } = this.props;
+    if (courses.length === 0) {
+      actions.loadCourses().catch((error) => {
+        alert("Loading courses failed " + error);
+      });
+    }
+    if (authors.length === 0) {
+      actions.loadAuthors().catch((error) => {
+        alert("Loading authors failed " + error);
+      });
+    }
+  }
+
+  /*handleChange = (event) => {
     const course = { ...this.state.course, title: event.target.value };
     this.setState({ course });
   };
@@ -20,40 +36,61 @@ class CoursesPage extends Component {
     event.preventDefault();
     this.props.actions.createCourse(this.state.course);
   };
-
+*/
   render() {
     return (
-      <form onSubmit={this.handleSubmit}>
+      <>
+        {this.state.redirectToAddCoursePage && <Redirect to="/course" />}
         <h2>Courses</h2>
-        <h3>Add Course</h3>
-        <input
-          type="text"
-          onChange={this.handleChange}
-          value={this.state.course.title}
-        />
-        <input type="submit" value="Save" />
-        {this.props.courses.map((course) => (
-          <div key={course.title}>{course.title}</div>
-        ))}
-      </form>
+        {this.props.loading ? (
+          <Spinner />
+        ) : (
+          <>
+            <button
+              style={{ marginBottom: 20 }}
+              className="btn btn-primary add-course"
+              onClick={() => this.setState({ redirectToAddCoursePage: true })}
+            >
+              Add Course
+            </button>
+            <CourseList courses={this.props.courses} />
+          </>
+        )}
+      </>
     );
   }
 }
 
 CoursesPage.propTypes = {
+  authors: PropTypes.array.isRequired,
   courses: PropTypes.array.isRequired,
   actions: PropTypes.object.isRequired,
+  loading: PropTypes.bool.isRequired,
 };
 
 function mapStateToProps(state) {
   return {
-    courses: state.courses,
+    courses:
+      state.authors.length === 0
+        ? []
+        : state.courses.map((course) => {
+            return {
+              ...course,
+              authorName: state.authors.find((a) => a.id === course.authorId)
+                .name,
+            };
+          }),
+    authors: state.authors,
+    loading: state.apiCallsInProgress > 0,
   };
 }
 
 function mapDispatchToProps(dispatch) {
   return {
-    actions: bindActionCreators(courseActions, dispatch),
+    actions: {
+      loadCourses: bindActionCreators(courseActions.loadCourses, dispatch),
+      loadAuthors: bindActionCreators(authorActions.loadAuthors, dispatch),
+    },
   };
 }
 
